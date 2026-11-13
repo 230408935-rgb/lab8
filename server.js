@@ -2,17 +2,89 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
  
+
+
 const app = express();
 const PORT = process.env.PORT || 3000;
  
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, 'public');
   
-
 const COURSES = [
   { id: 1, title: 'Web Programming', credits: 6 },
   { id: 2, title: 'Computer Architecture', credits: 5 },
   { id: 3, title: 'Numerical Methods', credits: 4 },
   { id: 4, title: 'Database Management Systems', credits: 5 },
 ];
+
+let requestsServed = 0;
+ 
+function requestLogger(req, res, next) {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+}
+ 
+function requestCounter(req, res, next) {
+  requestsServed += 1;
+  next();
+}
+ 
+app.use(requestLogger);
+app.use(requestCounter);
+ 
+app.use(express.static(PUBLIC_DIR));
+ 
+app.get('/hello', (req, res) => {
+  res.type('text/plain').send("Hello from Abdallah's server");
+});
+ 
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').send('User-agent: *\nDisallow: /api/\n');
+});
+ 
+app.get('/old-page', (req, res) => {
+  res.redirect('/hello'); // 302 Found by default
+});
+ 
+app.get('/api/courses', (req, res) => {
+  res.json(COURSES);
+});
+ 
+app.get('/api/status', (req, res) => {
+  res.json({
+    status: 'ok',
+    nodeVersion: process.version,
+    uptimeSeconds: Math.round(process.uptime()),
+  });
+});
+ 
+app.get('/api/headers', (req, res) => {
+  res.json({
+    'user-agent': req.get('User-Agent') ?? null,
+    accept: req.get('Accept') ?? null,
+  });
+});
+ 
+app.post('/api/subscribe', (req, res) => {
+  res.status(201).json({ subscribed: true });
+});
+ 
+app.get('/api/admin', (req, res) => {
+  res.status(403).json({ error: 'Forbidden' });
+});
+ 
+app.get('/api/stats', (req, res) => {
+  res.json({ requestsServed });
+});
+ 
+app.use((req, res) => {
+  if (req.path.startsWith('/api')) {
+    res.status(404).json({ error: 'Not found' });
+  } else {
+    res.status(404).type('text/plain').send('404 - Page not found');
+  }
+});
+ 
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+});
